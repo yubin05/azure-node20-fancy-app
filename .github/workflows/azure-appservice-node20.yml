@@ -1,4 +1,58 @@
-name: Build and deploy Node.js 20 app to Azure App Service
+# name: Build and deploy Node.js 20 app to Azure App Service
+
+# on:
+#   push:
+#     branches:
+#       - main
+#   workflow_dispatch:
+
+# env:
+#   AZURE_WEBAPP_NAME: app-node20-github-yubin05
+#   NODE_VERSION: "20.x"
+
+# jobs:
+#   build-and-deploy:
+#     name: Build and deploy
+#     runs-on: ubuntu-latest
+
+#     permissions:
+#       contents: read
+
+#     steps:
+#       - name: Checkout source code
+#         uses: actions/checkout@v4
+
+#       - name: Setup Node.js ${{ env.NODE_VERSION }}
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: ${{ env.NODE_VERSION }}
+#           cache: npm
+
+#       - name: Install dependencies
+#         run: npm ci
+
+#       - name: Run syntax check
+#         run: npm test --if-present
+
+#       - name: Reinstall production dependencies only
+#         run: npm ci --omit=dev
+
+#       - name: Create deployment package
+#         run: |
+#           zip -r app.zip . \
+#             -x ".git/*" \
+#             -x ".github/*" \
+#             -x "app.zip" \
+#             -x "*.log"
+
+#       - name: Deploy to Azure App Service
+#         uses: azure/webapps-deploy@v3
+#         with:
+#           app-name: ${{ env.AZURE_WEBAPP_NAME }}
+#           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+#           package: app.zip
+
+name: Build and deploy Node.js 20 app to Azure App Service using OIDC
 
 on:
   push:
@@ -6,21 +60,34 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
-  AZURE_WEBAPP_NAME: app-node20-github-yubin05
+  AZURE_WEBAPP_NAME: app-node20-github-705jul
+  AZURE_WEBAPP_PACKAGE_PATH: .
   NODE_VERSION: "20.x"
 
 jobs:
   build-and-deploy:
-    name: Build and deploy
+    name: Build and deploy with OIDC
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
+    environment:
+      name: Production
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
+
+      - name: Login to Azure using OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
@@ -31,23 +98,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run syntax check
-        run: npm test --if-present
+      - name: Run test or syntax check
+        run: npm run test --if-present
 
       - name: Reinstall production dependencies only
         run: npm ci --omit=dev
 
       - name: Create deployment package
         run: |
-          zip -r app.zip . \
+          zip -r release.zip . \
             -x ".git/*" \
             -x ".github/*" \
-            -x "app.zip" \
+            -x "release.zip" \
             -x "*.log"
 
       - name: Deploy to Azure App Service
+        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: app.zip
+          package: release.zip
+
+      - name: Azure logout
+        run: az logout
