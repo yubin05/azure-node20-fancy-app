@@ -1,0 +1,53 @@
+name: Build and deploy Node.js 20 app to Azure App Service
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: app-node20-github-yubin05
+  NODE_VERSION: "20.x"
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run syntax check
+        run: npm test --if-present
+
+      - name: Reinstall production dependencies only
+        run: npm ci --omit=dev
+
+      - name: Create deployment package
+        run: |
+          zip -r app.zip . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "app.zip" \
+            -x "*.log"
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: app.zip
