@@ -65,7 +65,7 @@ permissions:
   contents: read
 
 env:
-  AZURE_WEBAPP_NAME: app-node20-github-705jul
+  AZURE_WEBAPP_NAME: app-node20-github-yubin05
   AZURE_WEBAPP_PACKAGE_PATH: .
   NODE_VERSION: "20.x"
 
